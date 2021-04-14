@@ -1,86 +1,69 @@
-import React, { Component } from "react";
+import React, { useState, useEffect } from "react";
 import { auth } from "../firebase/firebase";
 import { db } from "../firebase/firebase"
 
-export default class Chat extends Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            user: auth().currentUser,
-            chats: [],
-            content: '',
-            readError: null,
-            writeError: null
-        };
-        this.handleChange = this.handleChange.bind(this);
-        this.handleSubmit = this.handleSubmit.bind(this);
-        this.logOut = this.logOut.bind(this);
-    }
-    async componentDidMount() {
-        this.setState({ readError: null });
+const Chat = (props) => {
+
+    const [user, setUser] = useState(auth().currentUser);
+    const [chats, setChats] = useState([]);
+    const [content, setContent] = useState('');
+    const [readError, setReadError] = useState(null);
+    const [writeError, setWriteError] = useState(null);
+    useEffect(async () => {
+        setReadError(null);
         try {
             db.ref("chats").on("value", snapshot => {
                 let chats = [];
                 snapshot.forEach((snap) => {
                     chats.push(snap.val());
                 });
-                this.setState({ chats });
+                setChats(chats);
             });
+
         } catch (error) {
-            this.setState({ readError: error.message });
+            setReadError(error.message);
         }
+    }, []);
+
+    const handleChange = (event) => {
+        setContent(event.target.value)
     }
 
-    handleChange(event) {
-        this.setState({
-            content: event.target.value
-        });
-    }
-
-    logOut() {
-        auth().signOut().then(() => {
-            // logged out
-        }).catch((error) => {
-            // An error happened.
-        });
-    }
-    
-
-    async handleSubmit(event) {
+    const handleSubmit = async (event) => {
         event.preventDefault();
-        this.setState({ writeError: null });
+        setWriteError(null);
         try {
             await db.ref("chats").push({
-                content: this.state.content,
+                content: content,
                 timestamp: Date.now(),
-                uid: this.state.user.uid
+                uid: user.uid
             });
-            this.setState({ content: '' });
+            setContent('');
         } catch (error) {
-            this.setState({ writeError: error.message });
+            setWriteError(error.message);
         }
     }
 
-    render() {
-        return (
-            <div>
-                <div className="chats">
-                    {this.state.chats.map(chat => {
-                        return <p key={chat.timestamp}>{chat.content}</p>
-                    })}
-                </div>
-                <form onSubmit={this.handleSubmit}>
-                    <input onChange={this.handleChange} value={this.state.content}></input>
-                    {this.state.error ? <p>{this.state.writeError}</p> : null}
-                    <button type="submit">Send</button>
-                </form>
-                <div>
-                    Login in as: <strong>{this.state.user.email}</strong>
-                </div>
-                <button type="button" onClick={this.logOut}>
-                    Log Out
-                </button>
+    return (
+        <div>
+            <div className="chats">
+                {chats.map(chat => {
+                    return <p key={chat.timestamp}>{chat.content}</p>
+                })}
             </div>
-        );
-    }
+            <form onSubmit={handleSubmit}>
+                <input onChange={handleChange} value={content}></input>
+                {writeError ? <p>{writeError}</p> : null}
+                <button type="submit">Send</button>
+            </form>
+            <div>
+                Login in as: <strong>{user.email}</strong>
+            </div>
+            <button type="button" onClick={props.logOut}>
+                Log Out
+            </button>
+        </div>
+    )
 }
+
+export default Chat;
